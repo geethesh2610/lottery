@@ -1,0 +1,2 @@
+-- Development data is seeded with `npm run db:seed` (scripts/seed.js), which uses the
+-- same ingest_draw() function as the scrapers. This file exists so `supabase db reset` works locally.
