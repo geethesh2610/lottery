@@ -78,7 +78,7 @@ export default function App() {
       <CssBaseline />
       <ErrorBoundary>
         <AuthProvider>
-          <BrowserRouter>
+          <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
             <Suspense fallback={<LoadingState />}>
               <AppRoutes mode={mode} onToggleMode={toggle} />
             </Suspense>
