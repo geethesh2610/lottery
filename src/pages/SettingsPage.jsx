@@ -86,11 +86,17 @@ export default function SettingsPage() {
           )}
         </SectionCard>
 
+        <SectionCard title="Data tools" subtitle="Check the collected results for gaps and problems">
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+            <Button variant="outlined" component={RouterLink} to="/data-quality">Data quality</Button>
+          </Stack>
+        </SectionCard>
+
         <SectionCard title="Analysis parameters">
           <Row label="Minimum sample size">{MIN_SAMPLE_SIZE} results</Row>
           <Row label="Significance level">α = {SIGNIFICANCE_LEVEL} (Bonferroni-corrected across tests)</Row>
           <Row label="Chi-square cell minimum">expected count ≥ 5 (small cells merged)</Row>
-          <Row label="Recency half-life (Model C)">{RECENCY_HALF_LIFE} draws</Row>
+          <Row label="Recency half-life (pattern model)">{RECENCY_HALF_LIFE} draws</Row>
           <Row label="Fetch politeness">robots.txt respected · ≥1.5 s between requests · 20 s timeout</Row>
         </SectionCard>
       </ResponsiveGrid>

@@ -1,67 +1,160 @@
 import { useMemo, useState } from 'react';
-import { Alert, Box, Button, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, LinearProgress, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { useAsync } from '../hooks/useAsync.js';
-import { useAuth } from '../hooks/useAuth.jsx';
-import { deleteBacktestRun, listBacktestRuns, listPredictions } from '../services/predictionsService.js';
-import { MODELS, summarizeBacktest, rollingPerformance } from '../prediction/index.js';
-import { PageHeader, SectionCard, LoadingState, ErrorAlert, EmptyState, ResponsiveGrid, formatDateTime } from '../components/common.jsx';
-import { GroupedBarChart, MultiLineChart } from '../components/charts.jsx';
-import { SimpleSelect } from '../components/LotteryPrizeSelect.jsx';
-import { BacktestSummaryTable } from './BacktestingPage.jsx';
-import { NO_ADVANTAGE_MESSAGE } from '../constants/app.js';
+import { useEntries, useLotterySelection } from '../hooks/useLotteryData.js';
+import { listPredictions } from '../services/predictionsService.js';
+import { MODELS, findModel, runBacktest, summarizeBacktest } from '../prediction/index.js';
+import { PageHeader, SectionCard, LoadingState, ErrorAlert, EmptyState } from '../components/common.jsx';
+import { GroupedBarChart } from '../components/charts.jsx';
+import { LotteryPrizeSelect } from '../components/LotteryPrizeSelect.jsx';
 
-const modelLabel = (id) => (MODELS.find((m) => m.id === id)?.name ?? id).split(' — ')[0];
+const GUESSES = 10;
+const TEST_DRAWS = 200;
+const pct = (x) => `${(x * 100).toFixed(1)}%`;
 
-/** Groups saved per-model backtest rows (same lottery/prize/run time) into runs. */
-function groupRuns(rows) {
-  const runs = new Map();
-  for (const r of rows) {
-    const key = `${r.lottery_name}|${r.prize_category}|${r.training_end_date}|${r.results?.config?.mode}|${r.created_at.slice(0, 16)}`;
-    if (!runs.has(key)) runs.set(key, { key, lottery: r.lottery_name, prize: r.prize_category, created_at: r.created_at, rows: [] });
-    runs.get(key).rows.push(r);
-  }
-  return [...runs.values()];
+/** Plain-language comparison of each model with what random guessing achieves. */
+function SimpleSummaryTable({ summary }) {
+  const b = summary.baseline;
+  return (
+    <Box sx={{ overflowX: 'auto' }}>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Model</TableCell>
+            <TableCell align="right">Draws tested</TableCell>
+            <TableCell align="right">Last digit right</TableCell>
+            <TableCell align="right">Digits in the right place (avg)</TableCell>
+            <TableCell align="right">Exact wins</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {summary.models.map((m) => (
+            <TableRow key={m.modelId}>
+              <TableCell>{m.name}</TableCell>
+              <TableCell align="right">{m.steps}</TableCell>
+              <TableCell align="right">{pct(m.lastDigitRate)}</TableCell>
+              <TableCell align="right">{m.meanPositionMatches.toFixed(2)}</TableCell>
+              <TableCell align="right">{m.exactMatches}</TableCell>
+            </TableRow>
+          ))}
+          <TableRow sx={{ bgcolor: 'action.hover' }}>
+            <TableCell><em>Expected from pure luck</em></TableCell>
+            <TableCell align="right">—</TableCell>
+            <TableCell align="right">{pct(b.lastDigitRate)}</TableCell>
+            <TableCell align="right">{b.meanPositionMatches.toFixed(2)}</TableCell>
+            <TableCell align="right">≈0</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </Box>
+  );
 }
 
-/** Rebuilds step objects from compact saved rows so summaries/charts can be recomputed. */
-function stepsFromRun(run) {
-  const byDate = new Map();
-  for (const row of run.rows) {
-    for (const s of row.results.steps || []) {
-      if (!byDate.has(s.d)) byDate.set(s.d, { draw_date: s.d, actual: s.a, models: {} });
-      byDate.get(s.d).models[row.model_name] = { position_matches: s.p, matching_digits: s.g, last_digit_match: s.l1, last_two_match: s.l2, exact_match: s.e, top: s.t };
+function Verdict({ summary }) {
+  const severity = summary.advantageDetected ? 'warning' : summary.insufficient ? 'info' : 'success';
+  return <Alert severity={severity}><strong>{summary.verdict}</strong></Alert>;
+}
+
+function HistoryTest() {
+  const selection = useLotterySelection();
+  const entries = useEntries(selection.lottery, selection.prize);
+  const [progress, setProgress] = useState(null);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  const run = async () => {
+    setError(null);
+    setResult(null);
+    setProgress({ done: 0, total: 0 });
+    try {
+      setResult(await runBacktest(entries.data, {
+        modelIds: MODELS.map((m) => m.id),
+        mode: 'month',
+        count: GUESSES,
+        maxSteps: TEST_DRAWS,
+        seed: `${selection.lottery}|${selection.prize}`,
+        onProgress: setProgress,
+      }));
+    } catch (e) {
+      setError(e);
+    } finally {
+      setProgress(null);
     }
-  }
-  return [...byDate.values()].sort((a, b) => (a.draw_date < b.draw_date ? -1 : 1));
+  };
+
+  const summary = result?.summary;
+
+  return (
+    <SectionCard
+      title="Test on past draws"
+      subtitle={`Replays history: for each past draw, the models only see earlier results, make ${GUESSES} guesses, and we check them against what actually came up.`}
+    >
+      <ErrorAlert error={selection.error || entries.error || error} />
+      {selection.lotteryOptions.length === 0 && !selection.loading ? (
+        <EmptyState title="No data yet" description="Collect results first." />
+      ) : (
+        <LotteryPrizeSelect selection={selection}>
+          <Button variant="contained" onClick={run} disabled={!entries.data?.length || !!progress}>Run test</Button>
+        </LotteryPrizeSelect>
+      )}
+      {entries.loading && <LoadingState />}
+      {progress && (
+        <Box sx={{ mb: 2 }}>
+          <LinearProgress variant={progress.total ? 'determinate' : 'indeterminate'} value={progress.total ? (progress.done / progress.total) * 100 : 0} />
+          <Typography variant="caption">{progress.done} / {progress.total || '…'} draws</Typography>
+        </Box>
+      )}
+      {summary && (
+        <Stack spacing={3}>
+          <Verdict summary={summary} />
+          <Box>
+            <Typography variant="subtitle2">Pattern model vs random guessing</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              How often one of the {GUESSES} guesses had the right last digit. The red line is what pure luck gives
+              ({pct(summary.baseline.lastDigitRate)}). Bars near the line mean no real advantage.
+            </Typography>
+            <GroupedBarChart
+              data={summary.models.map((m) => ({ model: m.name, rate: Number(m.lastDigitRate.toFixed(3)) }))}
+              xKey="model"
+              series={[{ key: 'rate', label: 'Last-digit hit rate' }]}
+              referenceY={Number(summary.baseline.lastDigitRate.toFixed(3))}
+            />
+          </Box>
+          <SimpleSummaryTable summary={summary} />
+        </Stack>
+      )}
+    </SectionCard>
+  );
 }
 
 function LivePerformance() {
   const preds = useAsync(() => listPredictions({ evaluated: true, limit: 1000 }), []);
   const summary = useMemo(() => {
-    if (!preds.data?.length) return null;
+    const rows = (preds.data || []).filter((p) => findModel(p.model_name));
+    if (!rows.length) return null;
     const steps = new Map();
     const modelIds = new Set();
-    for (const p of preds.data) {
+    for (const p of rows) {
       const key = `${p.lottery_name}|${p.prize_category}|${p.target_draw_date}`;
       if (!steps.has(key)) steps.set(key, { draw_date: p.target_draw_date, models: {} });
       steps.get(key).models[p.model_name] = p;
       modelIds.add(p.model_name);
     }
     const list = [...steps.values()].sort((a, b) => (a.draw_date < b.draw_date ? -1 : 1));
-    const len = preds.data[0].actual_number?.length ?? 6;
-    const count = preds.data[0].predicted_numbers?.length ?? 10;
+    const len = rows[0].actual_number?.length ?? 6;
+    const count = rows[0].predicted_numbers?.length ?? GUESSES;
     return summarizeBacktest(list, { modelIds: [...modelIds], length: len, count });
   }, [preds.data]);
 
   return (
-    <SectionCard title="Live predictions" subtitle="Saved forward-looking predictions evaluated against actual draws">
+    <SectionCard title="Real predictions so far" subtitle="Guesses saved before a draw, checked after the result came out">
       <ErrorAlert error={preds.error} onRetry={preds.reload} />
       {preds.loading ? <LoadingState /> : !summary ? (
-        <EmptyState title="No evaluated predictions yet" description="The daily job generates predictions for upcoming draws and evaluates them after the results are published." />
+        <EmptyState title="No checked predictions yet" description="The daily job saves predictions for upcoming draws and checks them once the results are published." />
       ) : (
         <Stack spacing={2}>
-          <Alert severity={summary.advantageDetected ? 'warning' : summary.insufficient ? 'info' : 'success'}>{summary.verdict}</Alert>
-          <BacktestSummaryTable summary={summary} />
+          <Verdict summary={summary} />
+          <SimpleSummaryTable summary={summary} />
         </Stack>
       )}
     </SectionCard>
@@ -69,104 +162,16 @@ function LivePerformance() {
 }
 
 export default function PerformancePage() {
-  const { user } = useAuth();
-  const runs = useAsync(() => listBacktestRuns({ limit: 300 }), []);
-  const grouped = useMemo(() => groupRuns(runs.data || []), [runs.data]);
-  const [selectedKey, setSelectedKey] = useState('');
-  const run = grouped.find((g) => g.key === selectedKey) || grouped[0];
-
-  const analysis = useMemo(() => {
-    if (!run) return null;
-    const steps = stepsFromRun(run);
-    const modelIds = run.rows.map((r) => r.model_name);
-    const config = run.rows[0].results.config;
-    return { steps, modelIds, summary: summarizeBacktest(steps, { modelIds, length: config.length, count: config.count }) };
-  }, [run]);
-
-  const remove = async () => {
-    if (!run || !window.confirm('Delete this saved backtest?')) return;
-    for (const r of run.rows) await deleteBacktestRun(r.id);
-    setSelectedKey('');
-    runs.reload();
-  };
-
   return (
     <>
-      <PageHeader title="Prediction Performance" subtitle="Does any model actually beat random guessing? Results from saved backtests and from evaluated live predictions." />
-      <ErrorAlert error={runs.error} onRetry={runs.reload} />
-      {runs.loading ? <LoadingState /> : !grouped.length ? (
-        <SectionCard>
-          <EmptyState title="No saved backtests" description="Run a backtest on the Backtesting page and click “Save results”." />
-        </SectionCard>
-      ) : (
-        <>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3, alignItems: { sm: 'center' } }}>
-            <SimpleSelect
-              label="Saved backtest"
-              value={run.key}
-              onChange={setSelectedKey}
-              minWidth={360}
-              options={grouped.map((g) => ({ value: g.key, label: `${g.lottery} · ${g.prize} · ${g.rows[0].results.config.mode} · ${formatDateTime(g.created_at)}` }))}
-            />
-            {user && <Button color="error" onClick={remove}>Delete</Button>}
-          </Stack>
-          <Alert severity={analysis.summary.advantageDetected ? 'warning' : analysis.summary.insufficient ? 'info' : 'success'} sx={{ mb: 3 }}>
-            <strong>{analysis.summary.advantageDetected ? analysis.summary.verdict : analysis.summary.insufficient ? analysis.summary.verdict : NO_ADVANTAGE_MESSAGE}</strong>
-            <Typography variant="body2">
-              {analysis.summary.steps} walk-forward test draws ({run.rows[0].training_start_date} → {run.rows[0].training_end_date}).
-            </Typography>
-          </Alert>
-          <ResponsiveGrid min={440} sx={{ mb: 3 }}>
-            <SectionCard title="Model accuracy" subtitle="Average matching digits and position matches (best of K)">
-              <GroupedBarChart
-                data={analysis.summary.models.map((m) => ({ model: modelLabel(m.modelId), 'Matching digits': Number(m.meanDigitMatches.toFixed(3)), 'Position matches': Number(m.meanPositionMatches.toFixed(3)) }))}
-                xKey="model"
-                series={[{ key: 'Matching digits', label: 'Matching digits' }, { key: 'Position matches', label: 'Position matches' }]}
-              />
-            </SectionCard>
-            <SectionCard title="Model vs random baseline" subtitle="Difference from theoretical random expectation (position matches)">
-              <GroupedBarChart
-                data={analysis.summary.models.map((m) => ({ model: modelLabel(m.modelId), diff: Number((m.meanPositionMatches - analysis.summary.baseline.meanPositionMatches).toFixed(3)) }))}
-                xKey="model"
-                series={[{ key: 'diff', label: 'Δ vs baseline' }]}
-                referenceY={0}
-              />
-            </SectionCard>
-            <SectionCard title="Matching digits distribution" subtitle="How many draws had N best position matches">
-              <GroupedBarChart
-                data={Array.from({ length: (analysis.steps[0]?.actual?.length ?? 6) + 1 }, (_, n) => {
-                  const row = { matches: String(n) };
-                  for (const id of analysis.modelIds) row[id] = analysis.steps.filter((s) => s.models[id]?.position_matches === n).length;
-                  return row;
-                })}
-                xKey="matches"
-                series={analysis.modelIds.map((id) => ({ key: id, label: modelLabel(id) }))}
-              />
-            </SectionCard>
-            <SectionCard title="Last digit performance" subtitle="Hit rate; red line = random baseline">
-              <GroupedBarChart
-                data={analysis.summary.models.map((m) => ({ model: modelLabel(m.modelId), rate: Number(m.lastDigitRate.toFixed(3)) }))}
-                xKey="model"
-                series={[{ key: 'rate', label: 'Last-digit hit rate' }]}
-                referenceY={Number(analysis.summary.baseline.lastDigitRate.toFixed(3))}
-              />
-            </SectionCard>
-          </ResponsiveGrid>
-          <SectionCard title="Rolling performance" subtitle="20-draw rolling mean of position matches; red line = random baseline" sx={{ mb: 3 }}>
-            {analysis.steps.length >= 20 ? (
-              <MultiLineChart data={rollingPerformance(analysis.steps, analysis.modelIds)} xKey="draw_date" series={analysis.modelIds.map((id) => ({ key: id, label: modelLabel(id), dashed: id === 'random' }))} referenceY={Number(analysis.summary.baseline.meanPositionMatches.toFixed(3))} />
-            ) : <Alert severity="info">Insufficient historical data.</Alert>}
-          </SectionCard>
-          <SectionCard title="Details" sx={{ mb: 3 }}>
-            <BacktestSummaryTable summary={analysis.summary} />
-          </SectionCard>
-        </>
-      )}
-      <LivePerformance />
+      <PageHeader title="Performance" subtitle="Does the pattern model guess better than random? This page answers that one question." />
+      <Stack spacing={3}>
+        <HistoryTest />
+        <LivePerformance />
+      </Stack>
       <Box sx={{ mt: 2 }}>
         <Typography variant="caption" color="text.secondary">
-          A lottery that is genuinely random cannot be predicted; models are expected to perform like the baseline. Treat any apparent
-          advantage with suspicion until it repeats on new, unseen draws.
+          A fair lottery cannot be predicted, so the pattern model is expected to perform about the same as random guessing.
         </Typography>
       </Box>
     </>

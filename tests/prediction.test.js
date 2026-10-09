@@ -5,8 +5,8 @@ import { mockEntries } from './fixtures/mockData.js';
 const history = mockEntries({ count: 120, seed: 11 });
 
 describe('prediction models', () => {
-  it('provides models A–F', () => {
-    expect(MODELS.map((m) => m.letter)).toEqual(['A', 'B', 'C', 'D', 'E', 'F']);
+  it('provides the pattern model and the random baseline', () => {
+    expect(MODELS.map((m) => m.id)).toEqual(['recent', 'random']);
   });
 
   it.each(MODELS.map((m) => m.id))('%s outputs ranked candidates with number, score, model and reason', (id) => {
@@ -18,29 +18,29 @@ describe('prediction models', () => {
       expect(typeof c.number).toBe('string');
       expect(c.score).toBeGreaterThanOrEqual(0);
       expect(c.score).toBeLessThanOrEqual(1);
-      expect(c.model).toMatch(/^Model [A-F]/);
+      expect(c.model).toBe(MODELS.find((m) => m.id === id).name);
       expect(c.reason).toBeTruthy();
     }
     for (let i = 1; i < out.length; i++) expect(out[i - 1].score).toBeGreaterThanOrEqual(out[i].score);
   });
 
   it('is deterministic for the same seed and differs for another', () => {
-    const a = generateCandidates('ensemble', history, { samples: 300, seed: 'x' });
-    const b = generateCandidates('ensemble', history, { samples: 300, seed: 'x' });
-    const c = generateCandidates('ensemble', history, { samples: 300, seed: 'y' });
+    const a = generateCandidates('recent', history, { samples: 300, seed: 'x' });
+    const b = generateCandidates('recent', history, { samples: 300, seed: 'x' });
+    const c = generateCandidates('recent', history, { samples: 300, seed: 'y' });
     expect(a).toEqual(b);
     expect(a.map((x) => x.number)).not.toEqual(c.map((x) => x.number));
   });
 
-  it('frequency models favour historically frequent digits', () => {
+  it('the pattern model favours historically frequent digits', () => {
     const biased = history.map((e) => ({ ...e, number: `77${e.number.slice(2)}` }));
-    const top = generateCandidates('position', biased, { count: 5, samples: 500 });
+    const top = generateCandidates('recent', biased, { count: 5, samples: 500 });
     expect(top.every((c) => c.number.startsWith('77'))).toBe(true);
   });
 
   it('supports 4-digit prizes', () => {
     const four = history.map((e) => ({ ...e, number: e.number.slice(2) }));
-    const out = generateCandidates('ensemble', four, { count: 3, samples: 200 });
+    const out = generateCandidates('recent', four, { count: 3, samples: 200 });
     expect(out.every((c) => /^\d{4}$/.test(c.number))).toBe(true);
   });
 });
@@ -63,11 +63,11 @@ describe('evaluation metrics', () => {
 describe('live predictions', () => {
   it('builds rows for the next draw using only earlier history', () => {
     const today = history[history.length - 1].draw_date;
-    const { targetDate, rows } = buildPredictionRows('Test Lottery', '1st Prize', history, { today, samples: 200, modelIds: ['frequency', 'random'] });
+    const { targetDate, rows } = buildPredictionRows('Test Lottery', '1st Prize', history, { today, samples: 200, modelIds: ['recent', 'random'] });
     expect(targetDate > today).toBe(true);
     expect(rows).toHaveLength(2);
     expect(rows[0].predicted_numbers).toHaveLength(10);
-    expect(rows[0]).toMatchObject({ lottery_name: 'Test Lottery', prize_category: '1st Prize', model_name: 'frequency', target_draw_date: targetDate });
+    expect(rows[0]).toMatchObject({ lottery_name: 'Test Lottery', prize_category: '1st Prize', model_name: 'recent', target_draw_date: targetDate });
   });
 
   it('refuses to predict with insufficient data', () => {

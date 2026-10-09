@@ -12,7 +12,6 @@ const SourcesPage = lazy(() => import('./pages/SourcesPage.jsx'));
 const ResultsPage = lazy(() => import('./pages/ResultsPage.jsx'));
 const AnalysisPage = lazy(() => import('./pages/AnalysisPage.jsx'));
 const PredictionsPage = lazy(() => import('./pages/PredictionsPage.jsx'));
-const BacktestingPage = lazy(() => import('./pages/BacktestingPage.jsx'));
 const PerformancePage = lazy(() => import('./pages/PerformancePage.jsx'));
 const DataQualityPage = lazy(() => import('./pages/DataQualityPage.jsx'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage.jsx'));
@@ -49,7 +48,7 @@ function AppRoutes({ mode, onToggleMode }) {
         <Route path="results" element={<ResultsPage />} />
         <Route path="analysis" element={<AnalysisPage />} />
         <Route path="predictions" element={<PredictionsPage />} />
-        <Route path="backtesting" element={<BacktestingPage />} />
+        <Route path="backtesting" element={<Navigate to="/performance" replace />} />
         <Route path="performance" element={<PerformancePage />} />
         <Route path="data-quality" element={<DataQualityPage />} />
         <Route path="settings" element={<SettingsPage />} />

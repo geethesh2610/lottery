@@ -64,7 +64,7 @@ export default function PredictionsPage() {
   const { user } = useAuth();
   const selection = useLotterySelection();
   const entries = useEntries(selection.lottery, selection.prize);
-  const [modelId, setModelId] = useState('ensemble');
+  const [modelId, setModelId] = useState('recent');
   const [count, setCount] = useState(10);
   const [candidates, setCandidates] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -101,7 +101,7 @@ export default function PredictionsPage() {
 
   return (
     <>
-      <PageHeader title="Predictions" subtitle="Generate ranked candidates from experimental statistical models. Use Backtesting to check whether any model beats random." />
+      <PageHeader title="Predictions" subtitle="Generate guesses from the pattern model (or random guesses for comparison). Use Performance to check whether the pattern model beats random." />
       <Disclaimer />
       <SignInNotice action="save predictions" />
       <ErrorAlert error={selection.error || entries.error || error} />

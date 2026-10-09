@@ -10,9 +10,7 @@ import LinkIcon from '@mui/icons-material/LinkOutlined';
 import TableIcon from '@mui/icons-material/TableChartOutlined';
 import InsightsIcon from '@mui/icons-material/InsightsOutlined';
 import ScienceIcon from '@mui/icons-material/ScienceOutlined';
-import HistoryIcon from '@mui/icons-material/HistoryOutlined';
 import SpeedIcon from '@mui/icons-material/SpeedOutlined';
-import FactCheckIcon from '@mui/icons-material/FactCheckOutlined';
 import SettingsIcon from '@mui/icons-material/SettingsOutlined';
 import DarkModeIcon from '@mui/icons-material/DarkModeOutlined';
 import LightModeIcon from '@mui/icons-material/LightModeOutlined';
@@ -29,9 +27,7 @@ export const NAV_ITEMS = [
   { to: '/results', label: 'Historical Results', icon: <TableIcon /> },
   { to: '/analysis', label: 'Pattern Analysis', icon: <InsightsIcon /> },
   { to: '/predictions', label: 'Predictions', icon: <ScienceIcon /> },
-  { to: '/backtesting', label: 'Backtesting', icon: <HistoryIcon /> },
   { to: '/performance', label: 'Performance', icon: <SpeedIcon /> },
-  { to: '/data-quality', label: 'Data Quality', icon: <FactCheckIcon /> },
   { to: '/settings', label: 'Settings', icon: <SettingsIcon /> },
 ];
 

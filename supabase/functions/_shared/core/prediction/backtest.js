@@ -1,4 +1,4 @@
-import { MODELS, getModel } from './models.js';
+import { MODELS, findModel } from './models.js';
 import { generateCandidates } from './generate.js';
 import { evaluateCandidates, digitOverlap } from './evaluation.js';
 import { binomialUpperTail, zTestGreater, mean } from '../analytics/stats.js';
@@ -158,7 +158,7 @@ export function summarizeBacktest(steps, { modelIds, length, count }) {
     const significant = !isBaseline && n >= MIN_SAMPLE_SIZE && minP < alpha;
     return {
       modelId: id,
-      name: getModel(id).name,
+      name: findModel(id)?.name ?? id,
       steps: n,
       exactMatches: exact,
       exactRate: n ? exact / n : 0,

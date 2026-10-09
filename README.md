@@ -187,32 +187,25 @@ whether "hot" digits persist (they shouldn't, if draws are random).
 
 | Model | Idea |
 |---|---|
-| A — Frequency | Samples digits in proportion to overall historical frequency |
-| B — Position frequency | Samples each position from that position's history |
-| C — Recent weighted | Like B, older draws decay with a 20-draw half-life |
-| D — Digit distribution | Ranks random candidates by how typical their digit sum, odd/even split and repetition pattern are |
-| E — Random baseline | Uniform random — the yardstick |
-| F — Ensemble | Pools candidates from A–D and averages their scores |
+| Pattern model (`recent`) | Favours digits that came up often in each position recently (20-draw half-life) |
+| Random guess (`random`) | Uniform random — the yardstick the pattern model must beat |
 
 Generation is deterministic (seeded) and uses only data before the target draw. The daily job also generates and
 stores predictions for each lottery's next draw (inferred from its usual weekday) and evaluates them once the results
 appear.
 
-## 10. Backtesting
+## 10. Performance (walk-forward test)
 
-**Backtesting** runs a walk-forward evaluation:
-
-* *Monthly*: train on Jan–Jun → predict every July draw; train on Jan–Jul → predict August; …
-* *Every draw*: retrain before each draw.
+The **Performance** page replays history: for each past draw (latest 200), the models are trained only on results
+from before that month, make 10 guesses, and are checked against the actual number.
 
 `assertNoLeakage()` throws if any training row is on/after the cutoff; tests verify this with a spy model and an
 "oracle" model that would score exact hits if future data leaked.
 
-Metrics (best of K candidates per draw): exact match, matching digits, position matches, last digit, last two
-digits. Each model is tested against the **theoretical random baseline** (binomial / z-tests, Bonferroni-corrected)
-and compared with the empirical Model E. If nothing survives correction the app says
-**"No statistically meaningful predictive advantage detected."** Saved runs appear on **Performance** with model
-accuracy, model-vs-baseline, matching-digit distribution, last-digit and rolling-performance charts.
+The pattern model is tested against the **theoretical random baseline** (binomial / z-tests, Bonferroni-corrected).
+If nothing survives correction the app says **"No statistically meaningful predictive advantage detected."** The page
+shows one chart (last-digit hit rate vs. pure luck) and a plain table, for the history test and for real saved
+predictions. Data Quality is reached from **Settings**.
 
 ## 11. Deployment
 

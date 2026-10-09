@@ -49,6 +49,6 @@ export function onboardingSteps(s) {
     { key: 'test', label: 'Test source', done: s.testedSources > 0, to: '/sources', help: 'Click "Test Source" to preview what is detected, then Confirm & Save.' },
     { key: 'import', label: 'Import historical results', done: s.draws >= MIN_SAMPLE_SIZE, to: '/sources', help: `Use "Import history" or CSV import. At least ${MIN_SAMPLE_SIZE} draws are needed for statistics.` },
     { key: 'analyse', label: 'Analyse data', done: s.analysisVisited && s.draws > 0, to: '/analysis', help: 'Review digit, position and pattern statistics.' },
-    { key: 'predict', label: 'Generate experimental prediction', done: s.predictions > 0, to: '/predictions', help: 'Generate and save candidates, then compare models in Backtesting.' },
+    { key: 'predict', label: 'Generate experimental prediction', done: s.predictions > 0, to: '/predictions', help: 'Generate and save candidates, then check Performance to see whether it beats random.' },
   ];
 }

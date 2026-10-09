@@ -13,7 +13,7 @@ describe('data leakage prevention', () => {
 
   it.each(['draw', 'month'])('never trains on the target draw or later (%s mode)', async (mode) => {
     // Spy model: records the newest training date it was given for each target.
-    const spy = MODELS.find((m) => m.id === 'frequency');
+    const spy = MODELS.find((m) => m.id === 'recent');
     const originalTrain = spy.train;
     const seen = [];
     spy.train = (history, opts) => {
@@ -21,7 +21,7 @@ describe('data leakage prevention', () => {
       return originalTrain(history, opts);
     };
     try {
-      const res = await runBacktest(entries, { modelIds: ['frequency'], mode, samples: 50, yieldEvery: 0 });
+      const res = await runBacktest(entries, { modelIds: ['recent'], mode, samples: 50, yieldEvery: 0 });
       expect(res.steps.length).toBeGreaterThan(50);
       for (const step of res.steps) {
         expect(step.cutoff <= step.draw_date).toBe(true);
@@ -53,7 +53,7 @@ describe('data leakage prevention', () => {
 
 describe('walk-forward backtest', () => {
   it('trains on Jan→Jun to predict July, then Jan→Jul for August, …', async () => {
-    const res = await runBacktest(entries, { modelIds: ['frequency', 'random'], mode: 'month', minTrainSize: 26, samples: 100, yieldEvery: 0 });
+    const res = await runBacktest(entries, { modelIds: ['recent', 'random'], mode: 'month', minTrainSize: 26, samples: 100, yieldEvery: 0 });
     const july = res.steps.find((s) => s.draw_date.startsWith('2022-07'));
     const aug = res.steps.find((s) => s.draw_date.startsWith('2022-08'));
     expect(july.trainingSize).toBe(entries.filter((e) => e.draw_date < '2022-07-01').length);
@@ -75,11 +75,11 @@ describe('walk-forward backtest', () => {
     }
     expect(s.advantageDetected).toBe(false);
     expect(s.verdict).toBe(NO_ADVANTAGE_MESSAGE);
-    expect(rollingPerformance(res.steps, ['frequency'], 'position_matches', 20)).toHaveLength(res.steps.length - 19);
+    expect(rollingPerformance(res.steps, ['recent'], 'position_matches', 20)).toHaveLength(res.steps.length - 19);
   });
 
   it('reports insufficient data for short histories', async () => {
-    const res = await runBacktest(entries.slice(0, 40), { mode: 'draw', modelIds: ['frequency'], samples: 50, yieldEvery: 0 });
+    const res = await runBacktest(entries.slice(0, 40), { mode: 'draw', modelIds: ['recent'], samples: 50, yieldEvery: 0 });
     expect(res.summary.insufficient).toBe(true);
     expect(res.summary.verdict).toBe(INSUFFICIENT_DATA_MESSAGE);
   });
@@ -93,7 +93,7 @@ describe('walk-forward backtest', () => {
       },
     }));
     // 'good' is not a registered model id, so register a temporary alias.
-    MODELS.push({ id: 'good', letter: 'G', name: 'Model G — test' });
+    MODELS.push({ id: 'good', letter: 'G', name: 'Good test model' });
     try {
       const s = summarizeBacktest(steps, { modelIds: ['good', 'random'], length: 6, count: 10 });
       expect(s.models[0].significant).toBe(true);
