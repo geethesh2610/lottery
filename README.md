@@ -203,11 +203,27 @@ from before that month, make 10 guesses, and are checked against the actual numb
 "oracle" model that would score exact hits if future data leaked.
 
 The pattern model is tested against the **theoretical random baseline** (binomial / z-tests, Bonferroni-corrected).
-If nothing survives correction the app says **"No statistically meaningful predictive advantage detected."** The page
-shows one chart (last-digit hit rate vs. pure luck) and a plain table, for the history test and for real saved
-predictions. Data Quality is reached from **Settings**.
+If nothing survives correction the app says **"No statistically meaningful predictive advantage detected."** For both the
+history test and real saved predictions the page shows a plain-language summary and a draw-by-draw table: the actual
+winning number, our closest guess (correct digits highlighted), and all 10 guesses on expand. The chart and statistics
+table sit in a collapsible section. Data Quality is reached from **Settings**.
 
-## 11. Deployment
+## 11. AI assistant (free)
+
+The chat button (bottom right) opens an assistant that knows the app and can query your data: *"Predict 5th prize for
+Karunya"*, *"When did 4521 last win?"*, *"How have predictions performed?"*, *"Why did the last fetch fail?"*.
+It runs in the `chat` Edge Function using the **Gemini API free tier** (no credit card, no cost). The model never
+makes up numbers: it calls read-only tools (`supabase/functions/chat/tools.js`) that run the same prediction and
+analytics code as the app.
+
+1. Create a free key at https://aistudio.google.com/apikey (sign in with a Google account, no billing).
+2. Put it in `.env` as `GEMINI_API_KEY=...` and run `npm run functions:deploy` — or set it directly:
+   `npx supabase secrets set GEMINI_API_KEY=... --project-ref <ref>` and `npx supabase functions deploy chat --use-api`.
+
+Free-tier notes: requests are rate limited (the function falls back to `gemini-3.5-flash-lite` when the main model's
+quota is hit), and Google may use free-tier prompts to improve its products — don't type anything private.
+
+## 12. Deployment
 
 Backend (database, functions, schedule) is deployed by `npm run db:setup`. For the frontend:
 
@@ -225,7 +241,7 @@ npx netlify-cli deploy --build --prod --dir=dist
 
 Add your site URL to Supabase **Auth → URL configuration** if you use password reset e-mails.
 
-## 12. Limitations
+## 13. Limitations
 
 * **Lotteries are random.** Expect every model to perform like the baseline; the tooling is built to show that honestly.
 * Small samples produce noisy statistics; the app refuses to test below 30 observations, and even larger samples can show chance deviations.

@@ -30,7 +30,16 @@ export function deployFunctions(ref) {
   ok('CRON_SECRET stored as a function secret');
   supabase(['functions', 'deploy', 'fetch-lottery', '--project-ref', ref, '--use-api', '--yes']);
   supabase(['functions', 'deploy', 'daily-run', '--project-ref', ref, '--use-api', '--yes']);
-  ok('Edge Functions deployed: fetch-lottery, daily-run');
+  supabase(['functions', 'deploy', 'chat', '--project-ref', ref, '--use-api', '--yes']);
+  ok('Edge Functions deployed: fetch-lottery, daily-run, chat');
+  if (isSet('GEMINI_API_KEY')) {
+    const secrets = [`GEMINI_API_KEY=${process.env.GEMINI_API_KEY}`];
+    if (isSet('GEMINI_MODEL')) secrets.push(`GEMINI_MODEL=${process.env.GEMINI_MODEL}`);
+    supabase(['secrets', 'set', ...secrets, '--project-ref', ref]);
+    ok('GEMINI_API_KEY stored as a function secret (chat assistant enabled)');
+  } else {
+    warn('GEMINI_API_KEY not set — the chat assistant stays disabled until you add a free key (see README).');
+  }
   return cronSecret;
 }
 

@@ -426,3 +426,8 @@ entrypoint = "./functions/fetch-lottery/index.js"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/daily-run/index.js"
+
+[functions.chat]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/chat/index.js"

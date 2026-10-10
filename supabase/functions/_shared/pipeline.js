@@ -142,7 +142,7 @@ export async function evaluatePendingPredictions(admin) {
   return { pending: pending.length, evaluated };
 }
 
-function compactAnalytics(report) {
+export function compactAnalytics(report) {
   const pick = (d) => ({ pValue: d.test?.pValue ?? null, insufficient: !!d.test?.insufficient, rows: d.rows?.map((r) => [r.label, r.observed]) });
   return {
     length: report.length,

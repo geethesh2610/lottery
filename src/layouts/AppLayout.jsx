@@ -18,6 +18,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary.jsx';
 import { LoadingState } from '../components/common.jsx';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { APP_NAME } from '../constants/app.js';
+import { ChatAssistant } from '../components/ChatAssistant.jsx';
 
 const DRAWER_WIDTH = 248;
 
@@ -113,6 +114,7 @@ export function AppLayout({ mode, onToggleMode }) {
           </Suspense>
         </ErrorBoundary>
       </Box>
+      <ChatAssistant />
     </Box>
   );
 }

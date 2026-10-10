@@ -112,7 +112,7 @@ export async function runBacktest(entries, options = {}) {
         );
       }
       const candidates = candidateCache.get(cacheKey);
-      step.models[modelId] = { ...evaluateCandidates(candidates, target.number), top: candidates[0] };
+      step.models[modelId] = { ...evaluateCandidates(candidates, target.number), top: candidates[0], candidates };
     }
     steps.push(step);
     if (onProgress) onProgress({ done: i + 1, total: eligible.length });
